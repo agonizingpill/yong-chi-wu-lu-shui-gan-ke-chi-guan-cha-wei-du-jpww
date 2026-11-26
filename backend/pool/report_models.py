@@ -15,3 +15,6 @@ class FactorReport(Base):
     reviewed_by: Mapped[str | None] = mapped_column(String(32))
     review_note: Mapped[str | None] = mapped_column(String(180))
     findings: Mapped[dict | None] = mapped_column(JSON)
+    # 因子编号与方向认定：order/signs 把本次拟合的原始编号映射到固定编号。
+    # 报告原始载荷始终保存在 findings 中，从不改写。
+    alignment: Mapped[dict | None] = mapped_column(JSON, nullable=True)

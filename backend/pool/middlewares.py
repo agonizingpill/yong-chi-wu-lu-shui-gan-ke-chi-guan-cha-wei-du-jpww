@@ -24,7 +24,7 @@ async def correlate(request: Request, call_next):
 
 async def prevent_stale_session(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/auth", "/waves", "/forms")):
+    if request.url.path.startswith(("/auth", "/waves", "/forms", "/factors")):
         response.headers["Cache-Control"] = "no-store"
     return response
 

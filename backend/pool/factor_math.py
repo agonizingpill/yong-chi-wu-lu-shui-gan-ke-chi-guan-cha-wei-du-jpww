@@ -7,8 +7,9 @@ from sklearn.decomposition import FactorAnalysis
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.preprocessing import StandardScaler
 
+from .constants import MIN_PRIMARY_LOADING
+
 SEED = 1084
-MIN_PRIMARY_LOADING = 0.45
 
 
 class UnfitObservation(ValueError):

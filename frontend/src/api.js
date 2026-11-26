@@ -8,6 +8,7 @@ export function pool(token) {
   return {
     waves:() => get('/waves'), forms:() => get('/forms'), reports:() => get('/factors'),
     submit:data => post('/surveys',data), fit:wave_id => post('/factors',{wave_id}),
+    align:(id,data) => post(`/factors/${id}/align`,data),
     approve:(id,note) => post(`/factors/${id}/approve`,{note}),
     publish:data => post('/forms/publish',data),
   };

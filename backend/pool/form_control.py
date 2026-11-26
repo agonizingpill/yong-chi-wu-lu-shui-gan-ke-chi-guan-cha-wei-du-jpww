@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from .alignment import aligned_findings
 from .audit import record
 from .cohort_models import Cohort, Wave
 from .cohorts import load_wave
@@ -41,7 +42,7 @@ def revise(db, data, actor):
     pinned = {entry_id for entry_id in positions if items[entry_id].pinned}
     if not chosen.issuperset(pinned):
         raise HTTPException(409, "须保留固定的开场登记条目。")
-    loadings = {item["item_id"]: item for item in report.findings["items"]}
+    loadings = {item["item_id"]: item for item in aligned_findings(report.findings, report.alignment)["items"]}
     factors = {loadings[item]["primary"] for item in chosen if loadings[item]["strong"]}
     if factors != {1, 2}:
         raise HTTPException(409, "下一轮观察表须各保留一个主要载荷达到阈值的条目。")

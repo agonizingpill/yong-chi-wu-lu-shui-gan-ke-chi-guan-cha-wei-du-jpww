@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
 from .auth import Current, Db, Supervisor, Technician
 from .constants import ReportState, Role
-from .report_control import approve, display_report, get_report, queue_report
+from .report_control import approve, decide_alignment, display_report, get_report, queue_report
 from .report_models import FactorReport
 
 router = APIRouter(prefix="/factors", tags=["负荷核校"])
@@ -16,6 +16,20 @@ class RequestForm(BaseModel):
 
 class NoteForm(BaseModel):
     note: str = Field(min_length=6, max_length=180)
+
+
+class AlignmentForm(BaseModel):
+    order: list[int] = Field(min_length=2, max_length=2)
+    signs: list[int] = Field(min_length=2, max_length=2)
+    note: str = Field(min_length=6, max_length=180)
+
+    @model_validator(mode="after")
+    def valid_alignment(self):
+        if sorted(self.order) != [1, 2]:
+            raise ValueError("编号认定必须给出 1、2 两个固定编号的完整对应。")
+        if any(sign not in (-1, 1) for sign in self.signs):
+            raise ValueError("每个因子的方向只能是正向 1 或反向 -1。")
+        return self
 
 
 @router.get("")
@@ -37,6 +51,11 @@ def report_details(report_id: int, db: Db, actor: Current):
 @router.post("", status_code=202)
 def request_report(form: RequestForm, db: Db, actor: Technician):
     return display_report(queue_report(db, form.wave_id, actor.username))
+
+
+@router.post("/{report_id}/align")
+def align_report(report_id: int, form: AlignmentForm, db: Db, actor: Supervisor):
+    return display_report(decide_alignment(db, report_id, form.order, form.signs, form.note, actor.username))
 
 
 @router.post("/{report_id}/approve")
