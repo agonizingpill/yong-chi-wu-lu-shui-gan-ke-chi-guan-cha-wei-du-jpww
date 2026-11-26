@@ -1,0 +1,84 @@
+name: swim-class-factors
+x-python: &python
+  image: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-python:local
+  build: ./backend
+  environment:
+    DB_HOST: db
+    DB_NAME: ${DB_NAME:-swim_class}
+    DB_USER: ${DB_USER:-observer}
+    DB_PASSWORD: ${DB_PASSWORD:-demo-swim_class-local}
+    JWT_SECRET: ${JWT_SECRET:-local-swim_class-shadow-pool-signing-key}
+    REDIS_URL: redis://redis:6379/0
+    SEED_DEMO: ${SEED_DEMO:-true}
+    OPENBLAS_NUM_THREADS: '1'
+    OMP_NUM_THREADS: '1'
+  volumes:
+    - pool-evidence:/srv/forms
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
+services:
+  backend:
+    <<: *python
+    container_name: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-backend
+    command: [uvicorn, pool.app:app, --host, 0.0.0.0, --port, '8000']
+    ports: ['127.0.0.1:${BACKEND_PORT:-19308}:8000']
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 24
+  worker:
+    <<: *python
+    container_name: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-worker
+    command: [python, -m, pool.worker]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "from pathlib import Path; import time; assert 0 <= time.time()-Path('/tmp/pool-beat').stat().st_mtime < 20"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-swim_class}
+      POSTGRES_USER: ${DB_USER:-observer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-demo-swim_class-local}
+    ports: ['127.0.0.1:${DB_PORT:-17808}:5432']
+    volumes:
+      - pool-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 4s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-redis
+    command: [redis-server, --appendonly, 'yes']
+    volumes:
+      - pool-queue:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 18
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-swim-class-factors}-frontend
+    ports: ['127.0.0.1:${FRONTEND_PORT:-18308}:80']
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1/api/health']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  pool-db:
+  pool-queue:
+  pool-evidence:
